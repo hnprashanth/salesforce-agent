@@ -2,12 +2,39 @@ import * as cdk from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as kms from 'aws-cdk-lib/aws-kms';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import * as path from 'path';
 
 export class BackendStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
+
+    // Create KMS key for token encryption
+    const tokenEncryptionKey = new kms.Key(this, 'TokenEncryptionKey', {
+      description: 'KMS key for encrypting OAuth tokens',
+      enableKeyRotation: true,
+      keyUsage: kms.KeyUsage.ENCRYPT_DECRYPT,
+      keySpec: kms.KeySpec.SYMMETRIC_DEFAULT,
+    });
+
+    // Create DynamoDB table for session management
+    const sessionTable = new dynamodb.Table(this, 'SessionTable', {
+      tableName: 'salesforce-agent-sessions',
+      partitionKey: {
+        name: 'sessionId',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true,
+      },
+      timeToLiveAttribute: 'expiresAt',
+      removalPolicy: cdk.RemovalPolicy.DESTROY, // For development
+    });
 
     // Create shared layer for common dependencies
     const sharedLayer = new lambda.LayerVersion(this, 'SharedLayer', {
@@ -23,6 +50,11 @@ export class BackendStack extends cdk.Stack {
       handler: 'index.handler',
       environment: {
         NODE_ENV: 'production',
+        SESSION_TABLE_NAME: sessionTable.tableName,
+        KMS_KEY_ID: tokenEncryptionKey.keyId,
+        SALESFORCE_CLIENT_ID: process.env.SALESFORCE_CLIENT_ID || '',
+        SALESFORCE_CLIENT_SECRET: process.env.SALESFORCE_CLIENT_SECRET || '',
+        SALESFORCE_REDIRECT_URI: process.env.SALESFORCE_REDIRECT_URI || '',
       },
       layers: [sharedLayer],
       timeout: cdk.Duration.seconds(30),
@@ -81,9 +113,26 @@ export class BackendStack extends cdk.Stack {
       },
     });
 
+    // Grant permissions to Lambda functions
+    sessionTable.grantReadWriteData(salesforceAuthFunction);
+    tokenEncryptionKey.grantEncryptDecrypt(salesforceAuthFunction);
+
     // Create API endpoints
     const authResource = api.root.addResource('auth');
-    authResource.addMethod('POST', new apigateway.LambdaIntegration(salesforceAuthFunction));
+    const salesforceAuthResource = authResource.addResource('salesforce');
+    
+    // OAuth endpoints
+    const loginResource = salesforceAuthResource.addResource('login');
+    loginResource.addMethod('GET', new apigateway.LambdaIntegration(salesforceAuthFunction));
+    
+    const callbackResource = salesforceAuthResource.addResource('callback');
+    callbackResource.addMethod('GET', new apigateway.LambdaIntegration(salesforceAuthFunction));
+    
+    const refreshResource = salesforceAuthResource.addResource('refresh');
+    refreshResource.addMethod('POST', new apigateway.LambdaIntegration(salesforceAuthFunction));
+    
+    const logoutResource = salesforceAuthResource.addResource('logout');
+    logoutResource.addMethod('POST', new apigateway.LambdaIntegration(salesforceAuthFunction));
 
     const chatResource = api.root.addResource('chat');
     chatResource.addMethod('POST', new apigateway.LambdaIntegration(chatFunction));
