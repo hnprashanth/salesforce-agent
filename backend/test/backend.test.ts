@@ -43,6 +43,18 @@ describe('Backend Stack', () => {
     });
     
     template.hasResourceProperties('AWS::ApiGateway::Resource', {
+      PathPart: 'salesforce',
+    });
+    
+    template.hasResourceProperties('AWS::ApiGateway::Resource', {
+      PathPart: 'login',
+    });
+    
+    template.hasResourceProperties('AWS::ApiGateway::Resource', {
+      PathPart: 'callback',
+    });
+    
+    template.hasResourceProperties('AWS::ApiGateway::Resource', {
       PathPart: 'chat',
     });
     
@@ -55,6 +67,24 @@ describe('Backend Stack', () => {
     // Check that log retention custom resources exist
     template.hasResourceProperties('Custom::LogRetention', {
       RetentionInDays: 7
+    });
+  });
+
+  test('DynamoDB Table Created', () => {
+    template.resourceCountIs('AWS::DynamoDB::Table', 1);
+    
+    template.hasResourceProperties('AWS::DynamoDB::Table', {
+      TableName: 'salesforce-agent-sessions',
+      BillingMode: 'PAY_PER_REQUEST',
+    });
+  });
+
+  test('KMS Key Created', () => {
+    template.resourceCountIs('AWS::KMS::Key', 1);
+    
+    template.hasResourceProperties('AWS::KMS::Key', {
+      Description: 'KMS key for encrypting OAuth tokens',
+      EnableKeyRotation: true,
     });
   });
 });
