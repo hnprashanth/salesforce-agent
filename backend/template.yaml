@@ -115,6 +115,96 @@ Resources:
           # Add environment-specific variables here
           OPENAI_API_KEY: !Ref OpenAIApiKey
 
+  # DynamoDB Table for Token Storage
+  TokensTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-tokens
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sessionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sessionId
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  # KMS Key for Token Encryption
+  TokenEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS Key for encrypting Salesforce tokens
+      KeyPolicy:
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:aws:iam::${AWS::AccountId}:root
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow Lambda function to use the key
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt SalesforceAuthFunctionRole.Arn
+            Action:
+              - kms:Encrypt
+              - kms:Decrypt
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:DescribeKey
+            Resource: '*'
+
+  TokenEncryptionKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/${AWS::StackName}-token-encryption
+      TargetKeyId: !Ref TokenEncryptionKey
+
+  # IAM Role for Salesforce Auth Function
+  SalesforceAuthFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                Resource: !GetAtt TokensTable.Arn
+        - PolicyName: KMSAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Encrypt
+                  - kms:Decrypt
+                  - kms:ReEncrypt*
+                  - kms:GenerateDataKey*
+                  - kms:DescribeKey
+                Resource: !GetAtt TokenEncryptionKey.Arn
+
   # Salesforce Auth Function
   SalesforceAuthFunction:
     Type: AWS::Serverless::Function
@@ -122,12 +212,13 @@ Resources:
       CodeUri: src/functions/salesforce-auth/
       Handler: index.handler
       Description: Handle Salesforce OAuth authentication
+      Role: !GetAtt SalesforceAuthFunctionRole.Arn
       Events:
-        AuthorizeEvent:
+        LoginEvent:
           Type: Api
           Properties:
-            Path: /auth/salesforce/authorize
-            Method: get
+            Path: /auth/salesforce/login
+            Method: post
             RestApiId: !Ref ApiGateway
             Auth:
               Authorizer: NONE
@@ -139,11 +230,31 @@ Resources:
             RestApiId: !Ref ApiGateway
             Auth:
               Authorizer: NONE
+        RefreshEvent:
+          Type: Api
+          Properties:
+            Path: /auth/salesforce/refresh
+            Method: post
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+        LogoutEvent:
+          Type: Api
+          Properties:
+            Path: /auth/salesforce/logout
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
       Environment:
         Variables:
           SALESFORCE_CLIENT_ID: !Ref SalesforceClientId
           SALESFORCE_CLIENT_SECRET: !Ref SalesforceClientSecret
           SALESFORCE_REDIRECT_URI: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/auth/salesforce/callback
+          TOKENS_TABLE: !Ref TokensTable
+          KMS_KEY_ID: !Ref TokenEncryptionKey
+          JWT_SECRET: !Ref JwtSecret
+          FRONTEND_URL: !Ref FrontendUrl
 
   # Opportunity Function
   OpportunityFunction:
@@ -214,6 +325,16 @@ Parameters:
   SalesforceInstanceUrl:
     Type: String
     Description: Salesforce instance URL (e.g., https://yourcompany.my.salesforce.com)
+  
+  JwtSecret:
+    Type: String
+    NoEcho: true
+    Description: JWT Secret for session token signing
+  
+  FrontendUrl:
+    Type: String
+    Default: http://localhost:3000
+    Description: Frontend application URL for redirects
 
 Outputs:
   ApiUrl:
