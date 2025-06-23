@@ -42,34 +42,34 @@ describe('Salesforce Auth Function', () => {
         expect(result.headers['Access-Control-Allow-Origin']).toBe('*');
     });
 
-    test('should handle authorize request', async () => {
+    test('should handle login request', async () => {
         const event = {
-            httpMethod: 'GET',
-            path: '/auth/salesforce/authorize'
-        };
-
-        const result = await handler(event);
-
-        expect(result.statusCode).toBe(302);
-        expect(result.headers.Location).toContain('https://login.salesforce.com/oauth2/authorize');
-    });
-
-    test('should handle callback with valid code', async () => {
-        const event = {
-            httpMethod: 'GET',
-            path: '/auth/salesforce/callback',
-            queryStringParameters: {
-                code: 'test-auth-code'
-            }
+            httpMethod: 'POST',
+            path: '/auth/salesforce/login'
         };
 
         const result = await handler(event);
 
         expect(result.statusCode).toBe(200);
         const body = JSON.parse(result.body);
-        expect(body.success).toBe(true);
-        expect(body.user.id).toBe('test-user-id');
-        expect(body.user.email).toBe('test@example.com');
+        expect(body.authUrl).toContain('https://login.salesforce.com/oauth2/authorize');
+        expect(body.state).toBeDefined();
+    });
+
+    test('should handle callback with valid code and state', async () => {
+        const event = {
+            httpMethod: 'GET',
+            path: '/auth/salesforce/callback',
+            queryStringParameters: {
+                code: 'test-auth-code',
+                state: 'test-state'
+            }
+        };
+
+        const result = await handler(event);
+
+        expect(result.statusCode).toBe(302);
+        expect(result.headers.Location).toContain('http://localhost:3000/auth/callback');
     });
 
     test('should return 400 for callback without code', async () => {
@@ -84,5 +84,64 @@ describe('Salesforce Auth Function', () => {
         expect(result.statusCode).toBe(400);
         const body = JSON.parse(result.body);
         expect(body.error).toBe('Authorization code is required');
+    });
+
+    test('should handle refresh token request', async () => {
+        const event = {
+            httpMethod: 'POST',
+            path: '/auth/salesforce/refresh',
+            headers: {
+                Authorization: 'Bearer test-jwt-token'
+            }
+        };
+
+        const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
+        const mockSend = DynamoDBClient.prototype.send;
+        mockSend.mockResolvedValueOnce({
+            Item: {
+                sessionId: { S: 'test-session' },
+                encryptedData: { S: 'encrypted-token-data' },
+                userId: { S: 'test-user' },
+                organizationId: { S: 'test-org' },
+                expiresAt: { N: (Date.now() + 3600000).toString() }
+            }
+        });
+
+        const result = await handler(event);
+
+        expect(result.statusCode).toBe(200);
+        const body = JSON.parse(result.body);
+        expect(body.success).toBe(true);
+        expect(body.token).toBeDefined();
+    });
+
+    test('should handle logout request', async () => {
+        const event = {
+            httpMethod: 'GET',
+            path: '/auth/salesforce/logout',
+            headers: {
+                Authorization: 'Bearer test-jwt-token'
+            }
+        };
+
+        const result = await handler(event);
+
+        expect(result.statusCode).toBe(200);
+        const body = JSON.parse(result.body);
+        expect(body.success).toBe(true);
+        expect(body.message).toBe('Logged out successfully');
+    });
+
+    test('should return 404 for unknown paths', async () => {
+        const event = {
+            httpMethod: 'GET',
+            path: '/auth/salesforce/unknown'
+        };
+
+        const result = await handler(event);
+
+        expect(result.statusCode).toBe(404);
+        const body = JSON.parse(result.body);
+        expect(body.error).toBe('Not found');
     });
 });
