@@ -40,10 +40,12 @@ export default function Dashboard() {
 
   useEffect(() => {
     // Simulate API call
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       setOpportunities(mockOpportunities)
       setLoading(false)
     }, 1000)
+
+    return () => clearTimeout(timeoutId)
   }, [])
 
   const formatCurrency = (amount: number) => {

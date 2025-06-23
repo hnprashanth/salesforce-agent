@@ -28,7 +28,7 @@ export default function Chat() {
     if (!inputText.trim() || isLoading) return
 
     const userMessage: ChatMessage = {
-      id: Date.now().toString(),
+      id: crypto.randomUUID(),
       content: inputText,
       role: 'user',
       timestamp: new Date()
@@ -41,7 +41,7 @@ export default function Chat() {
     // Simulate AI response
     setTimeout(() => {
       const aiResponse: ChatMessage = {
-        id: (Date.now() + 1).toString(),
+        id: crypto.randomUUID(),
         content: getAIResponse(inputText),
         role: 'assistant',
         timestamp: new Date()
