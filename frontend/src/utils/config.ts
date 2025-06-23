@@ -1,4 +1,4 @@
-import type { AppConfig } from '@types/index'
+import type { AppConfig } from '@/types'
 
 export const config: AppConfig = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
