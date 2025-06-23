@@ -1,0 +1,10 @@
+{
+  "name": "opportunity-function",
+  "version": "1.0.0",
+  "description": "Salesforce opportunity operations handler",
+  "main": "index.js",
+  "dependencies": {
+    "jsforce": "^2.0.0-beta.29",
+    "@aws-sdk/client-dynamodb": "^3.600.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "chat-function",
+  "version": "1.0.0",
+  "description": "Chat interaction handler",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.600.0",
+    "openai": "^4.52.0"
+  }
+}

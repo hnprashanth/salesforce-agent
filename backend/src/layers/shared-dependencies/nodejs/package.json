@@ -1,0 +1,10 @@
+{
+  "name": "shared-dependencies",
+  "version": "1.0.0",
+  "description": "Shared dependencies layer for Lambda functions",
+  "dependencies": {
+    "aws-xray-sdk-core": "^3.5.3",
+    "winston": "^3.13.0",
+    "uuid": "^9.0.1"
+  }
+}

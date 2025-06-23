@@ -1,0 +1,229 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  salesforce-agent
+
+  SAM Template for Salesforce Agent serverless backend
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs18.x
+    MemorySize: 512
+    Tracing: Active
+    Environment:
+      Variables:
+        NODE_ENV: !Ref Environment
+        LOG_LEVEL: !Ref LogLevel
+    Layers:
+      - !Ref SharedDependenciesLayer
+
+Parameters:
+  Environment:
+    Type: String
+    Default: development
+    AllowedValues:
+      - development
+      - staging
+      - production
+    Description: The deployment environment
+  
+  LogLevel:
+    Type: String
+    Default: info
+    AllowedValues:
+      - error
+      - warn
+      - info
+      - debug
+    Description: CloudWatch logging level
+
+Resources:
+  # Shared Dependencies Layer
+  SharedDependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub ${AWS::StackName}-shared-dependencies
+      Description: Shared dependencies for Lambda functions
+      ContentUri: src/layers/shared-dependencies/
+      CompatibleRuntimes:
+        - nodejs18.x
+      RetentionPolicy: Delete
+
+  # API Gateway
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: !Ref Environment
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+      Auth:
+        DefaultAuthorizer: CognitoAuthorizer
+        Authorizers:
+          CognitoAuthorizer:
+            UserPoolArn: !GetAtt UserPool.Arn
+
+  # Cognito User Pool
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub ${AWS::StackName}-user-pool
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireUppercase: true
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Required: true
+          Mutable: false
+
+  # User Pool Client
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub ${AWS::StackName}-client
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+
+  # Chat Function
+  ChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/chat/
+      Handler: index.handler
+      Description: Handle chat interactions with AI agent
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chat
+            Method: post
+            RestApiId: !Ref ApiGateway
+      Environment:
+        Variables:
+          # Add environment-specific variables here
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+
+  # Salesforce Auth Function
+  SalesforceAuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/salesforce-auth/
+      Handler: index.handler
+      Description: Handle Salesforce OAuth authentication
+      Events:
+        AuthorizeEvent:
+          Type: Api
+          Properties:
+            Path: /auth/salesforce/authorize
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+        CallbackEvent:
+          Type: Api
+          Properties:
+            Path: /auth/salesforce/callback
+            Method: get
+            RestApiId: !Ref ApiGateway
+            Auth:
+              Authorizer: NONE
+      Environment:
+        Variables:
+          SALESFORCE_CLIENT_ID: !Ref SalesforceClientId
+          SALESFORCE_CLIENT_SECRET: !Ref SalesforceClientSecret
+          SALESFORCE_REDIRECT_URI: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}/auth/salesforce/callback
+
+  # Opportunity Function
+  OpportunityFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/functions/opportunity/
+      Handler: index.handler
+      Description: Handle Salesforce opportunity operations
+      Events:
+        GetOpportunities:
+          Type: Api
+          Properties:
+            Path: /opportunities
+            Method: get
+            RestApiId: !Ref ApiGateway
+        CreateOpportunity:
+          Type: Api
+          Properties:
+            Path: /opportunities
+            Method: post
+            RestApiId: !Ref ApiGateway
+        UpdateOpportunity:
+          Type: Api
+          Properties:
+            Path: /opportunities/{id}
+            Method: put
+            RestApiId: !Ref ApiGateway
+      Environment:
+        Variables:
+          SALESFORCE_INSTANCE_URL: !Ref SalesforceInstanceUrl
+
+  # CloudWatch Log Groups
+  ChatFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${ChatFunction}
+      RetentionInDays: 7
+
+  SalesforceAuthFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${SalesforceAuthFunction}
+      RetentionInDays: 7
+
+  OpportunityFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${OpportunityFunction}
+      RetentionInDays: 7
+
+# Parameters for sensitive data
+Parameters:
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    Description: OpenAI API Key for chat functionality
+  
+  SalesforceClientId:
+    Type: String
+    NoEcho: true
+    Description: Salesforce OAuth Client ID
+  
+  SalesforceClientSecret:
+    Type: String
+    NoEcho: true
+    Description: Salesforce OAuth Client Secret
+  
+  SalesforceInstanceUrl:
+    Type: String
+    Description: Salesforce instance URL (e.g., https://yourcompany.my.salesforce.com)
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/${Environment}
+  
+  UserPoolId:
+    Description: Cognito User Pool ID
+    Value: !Ref UserPool
+  
+  UserPoolClientId:
+    Description: Cognito User Pool Client ID
+    Value: !Ref UserPoolClient
