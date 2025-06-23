@@ -1,0 +1,11 @@
+Name,Industry,AnnualRevenue,NumberOfEmployees,BillingStreet,BillingCity,BillingState,BillingCountry,Phone,Website
+TechCorp Industries,Technology,50000000,500,123 Tech Plaza,San Francisco,California,United States,(415) 555-0123,www.techcorp.com
+Global Manufacturing Ltd,Manufacturing,120000000,1200,456 Industrial Ave,Detroit,Michigan,United States,(313) 555-0456,www.globalmanufacturing.com
+FinanceFirst Solutions,Financial Services,80000000,800,789 Wall Street,New York,New York,United States,(212) 555-0789,www.financefirst.com
+HealthCare Innovations,Healthcare,45000000,350,321 Medical Center Dr,Boston,Massachusetts,United States,(617) 555-0321,www.healthcareinnovations.com
+EduTech Systems,Education,25000000,200,654 University Blvd,Austin,Texas,United States,(512) 555-0654,www.edutech.com
+RetailMax Corporation,Retail,90000000,1500,987 Commerce St,Chicago,Illinois,United States,(312) 555-0987,www.retailmax.com
+EnergyFlow Partners,Energy,200000000,2000,147 Energy Plaza,Houston,Texas,United States,(713) 555-0147,www.energyflow.com
+MediaStream Solutions,Media,35000000,400,258 Media Blvd,Los Angeles,California,United States,(323) 555-0258,www.mediastream.com
+ConsultPro Services,Consulting,15000000,150,369 Business Park,Seattle,Washington,United States,(206) 555-0369,www.consultpro.com
+StartupVenture Inc,Technology,5000000,50,741 Innovation Way,Palo Alto,California,United States,(650) 555-0741,www.startupventure.com
