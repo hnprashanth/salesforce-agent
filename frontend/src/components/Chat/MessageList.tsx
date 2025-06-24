@@ -1,4 +1,4 @@
-import { RefObject } from 'react'
+import { type RefObject } from 'react'
 import type { ChatMessage } from '@/types'
 import Message from './Message'
 import TypingIndicator from './TypingIndicator'
