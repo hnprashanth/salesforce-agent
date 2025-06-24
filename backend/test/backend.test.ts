@@ -1,5 +1,5 @@
 import * as cdk from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Template, Match } from 'aws-cdk-lib/assertions';
 import * as Backend from '../lib/backend-stack';
 
 describe('Backend Stack', () => {
@@ -60,6 +60,19 @@ describe('Backend Stack', () => {
     
     template.hasResourceProperties('AWS::ApiGateway::Resource', {
       PathPart: 'opportunities',
+    });
+  });
+
+  test('Chat Function Environment Variables', () => {
+    // Verify the chat function has the correct environment setup
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: {
+          NODE_ENV: 'production',
+          OPENAI_API_KEY: Match.anyValue(),
+          SESSION_TABLE_NAME: Match.anyValue(),
+        },
+      },
     });
   });
 

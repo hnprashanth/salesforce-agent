@@ -62,17 +62,19 @@ export class BackendStack extends cdk.Stack {
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
-    // Create Lambda function for Chat
+    // Create Lambda function for AI Chat
     const chatFunction = new lambda.Function(this, 'ChatFunction', {
       runtime: lambda.Runtime.NODEJS_18_X,
       code: lambda.Code.fromAsset(path.join(__dirname, '../src/functions/chat')),
       handler: 'index.handler',
       environment: {
         NODE_ENV: 'production',
+        OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
+        SESSION_TABLE_NAME: sessionTable.tableName,
       },
       layers: [sharedLayer],
-      timeout: cdk.Duration.seconds(30),
-      memorySize: 512,
+      timeout: cdk.Duration.seconds(60),
+      memorySize: 1024,
       logRetention: logs.RetentionDays.ONE_WEEK,
     });
 
@@ -115,6 +117,7 @@ export class BackendStack extends cdk.Stack {
 
     // Grant permissions to Lambda functions
     sessionTable.grantReadWriteData(salesforceAuthFunction);
+    sessionTable.grantReadData(chatFunction);
     tokenEncryptionKey.grantEncryptDecrypt(salesforceAuthFunction);
 
     // Create API endpoints
