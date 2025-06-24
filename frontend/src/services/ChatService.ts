@@ -8,13 +8,14 @@ export interface ChatRequest {
 }
 
 export interface ChatResponse {
-  reply: string
-  actions?: Array<{
-    id: string
-    label: string
-    action: string
-    payload?: any
+  response: string
+  suggestedActions?: Array<{
+    type: string
+    confidence: number
+    suggestion: string
   }>
+  contextUsed?: boolean
+  timestamp?: string
 }
 
 export class ChatService {

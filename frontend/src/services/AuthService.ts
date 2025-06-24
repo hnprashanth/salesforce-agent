@@ -21,15 +21,13 @@ export class AuthService {
   private readonly EXPIRES_AT_KEY = 'sf_expires_at'
 
   async getSalesforceAuthUrl(): Promise<ApiResponse<SalesforceAuthUrl>> {
-    return apiService.get<SalesforceAuthUrl>('/salesforce-auth')
+    // Redirect directly to the login endpoint
+    window.location.href = `${config.apiBaseUrl}/auth/salesforce/login`
+    return { success: true, data: { authUrl: '', state: '' } }
   }
 
   async handleAuthCallback(code: string, state: string): Promise<ApiResponse<AuthTokens>> {
-    const response = await apiService.post<AuthTokens>('/salesforce-auth/callback', {
-      code,
-      state,
-      redirectUri: config.salesforceRedirectUri
-    })
+    const response = await apiService.get<AuthTokens>(`/auth/salesforce/callback?code=${code}&state=${state}`)
 
     if (response.success && response.data) {
       this.storeTokens(response.data)
@@ -48,8 +46,8 @@ export class AuthService {
       }
     }
 
-    const response = await apiService.post<AuthTokens>('/salesforce-auth/refresh', {
-      refreshToken
+    const response = await apiService.post<AuthTokens>('/auth/salesforce/refresh', {
+      sessionId: refreshToken
     })
 
     if (response.success && response.data) {
@@ -67,7 +65,9 @@ export class AuthService {
     this.clearTokens()
     // Optionally call backend logout endpoint
     try {
-      await apiService.post('/auth/logout')
+      await apiService.post('/auth/salesforce/logout', {
+        sessionId: this.getRefreshToken()
+      })
     } catch (error) {
       // Ignore logout errors
       console.warn('Logout API call failed:', error)

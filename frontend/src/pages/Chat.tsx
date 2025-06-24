@@ -52,10 +52,15 @@ export default function Chat() {
       if (response.success && response.data) {
         const aiResponse: ChatMessage = {
           id: crypto.randomUUID(),
-          content: response.data.reply,
+          content: response.data.response,
           role: 'assistant',
           timestamp: new Date(),
-          actions: response.data.actions
+          actions: response.data.suggestedActions?.map(action => ({
+            id: crypto.randomUUID(),
+            label: action.suggestion,
+            action: action.type,
+            payload: { confidence: action.confidence }
+          }))
         }
         setMessages(prev => [...prev, aiResponse])
       } else {
