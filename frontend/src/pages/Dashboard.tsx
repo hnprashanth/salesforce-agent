@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { opportunityService } from '@/services'
 import type { Opportunity } from '@/types'
 
 const mockOpportunities: Opportunity[] = [
@@ -37,15 +38,35 @@ const mockOpportunities: Opportunity[] = [
 export default function Dashboard() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Simulate API call
-    const timeoutId = setTimeout(() => {
-      setOpportunities(mockOpportunities)
-      setLoading(false)
-    }, 1000)
+    const fetchOpportunities = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const response = await opportunityService.getOpportunities()
+        
+        if (response.success && response.data) {
+          setOpportunities(response.data)
+        } else {
+          // Fallback to mock data if API fails
+          console.warn('API failed, using mock data:', response.error)
+          setOpportunities(mockOpportunities)
+          setError('Using demo data - API connection failed')
+        }
+      } catch (error) {
+        console.error('Failed to fetch opportunities:', error)
+        // Fallback to mock data
+        setOpportunities(mockOpportunities)
+        setError('Using demo data - API connection failed')
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    return () => clearTimeout(timeoutId)
+    fetchOpportunities()
   }, [])
 
   const formatCurrency = (amount: number) => {
@@ -79,20 +100,64 @@ export default function Dashboard() {
     )
   }
 
+  const refreshData = async () => {
+    const fetchOpportunities = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const response = await opportunityService.getOpportunities()
+        
+        if (response.success && response.data) {
+          setOpportunities(response.data)
+        } else {
+          setOpportunities(mockOpportunities)
+          setError('Using demo data - API connection failed')
+        }
+      } catch (error) {
+        console.error('Failed to fetch opportunities:', error)
+        setOpportunities(mockOpportunities)
+        setError('Using demo data - API connection failed')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    await fetchOpportunities()
+  }
+
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-2 rounded-lg text-sm flex justify-between items-center">
+          <span><strong>Notice:</strong> {error}</span>
+          <button 
+            onClick={() => setError(null)}
+            className="ml-2 text-yellow-500 hover:text-yellow-700"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-bold text-gray-900">Sales Dashboard</h2>
         <div className="flex space-x-4">
+          <button
+            onClick={refreshData}
+            disabled={loading}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
           <div className="bg-white px-4 py-2 rounded-lg shadow">
             <div className="text-sm text-gray-500">Total Pipeline</div>
             <div className="text-2xl font-bold text-gray-900">
-              {formatCurrency(opportunities.reduce((sum, opp) => sum + opp.amount, 0))}
+              {formatCurrency(Array.isArray(opportunities) ? opportunities.reduce((sum, opp) => sum + opp.amount, 0) : 0)}
             </div>
           </div>
           <div className="bg-white px-4 py-2 rounded-lg shadow">
             <div className="text-sm text-gray-500">Opportunities</div>
-            <div className="text-2xl font-bold text-gray-900">{opportunities.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{Array.isArray(opportunities) ? opportunities.length : 0}</div>
           </div>
         </div>
       </div>
@@ -126,40 +191,48 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {opportunities.map((opportunity) => (
-                <tr key={opportunity.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{opportunity.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{opportunity.accountName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {formatCurrency(opportunity.amount)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStageColor(opportunity.stageName)}`}>
-                      {opportunity.stageName}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(opportunity.closeDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="text-sm font-medium text-gray-900">{opportunity.probability}%</div>
-                      <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${opportunity.probability}%` }}
-                        ></div>
+              {Array.isArray(opportunities) && opportunities.length > 0 ? (
+                opportunities.map((opportunity) => (
+                  <tr key={opportunity.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{opportunity.name}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{opportunity.accountName}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatCurrency(opportunity.amount)}
                       </div>
-                    </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStageColor(opportunity.stageName)}`}>
+                        {opportunity.stageName}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(opportunity.closeDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="text-sm font-medium text-gray-900">{opportunity.probability}%</div>
+                        <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full"
+                            style={{ width: `${opportunity.probability}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    {loading ? 'Loading opportunities...' : 'No opportunities found'}
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>

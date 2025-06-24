@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { chatService } from '@/services'
 import type { ChatMessage } from '@/types'
 
 const initialMessages: ChatMessage[] = [
@@ -14,7 +15,9 @@ export default function Chat() {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [inputText, setInputText] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [sessionId] = useState(() => crypto.randomUUID())
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -35,43 +38,52 @@ export default function Chat() {
     }
 
     setMessages(prev => [...prev, userMessage])
+    const messageText = inputText
     setInputText('')
     setIsLoading(true)
+    setError(null)
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: ChatMessage = {
+    try {
+      const response = await chatService.sendMessage({
+        message: messageText,
+        sessionId
+      })
+
+      if (response.success && response.data) {
+        const aiResponse: ChatMessage = {
+          id: crypto.randomUUID(),
+          content: response.data.response,
+          role: 'assistant',
+          timestamp: new Date(),
+          actions: response.data.suggestedActions?.map(action => ({
+            id: crypto.randomUUID(),
+            label: action.suggestion,
+            action: action.type,
+            payload: { confidence: action.confidence }
+          }))
+        }
+        setMessages(prev => [...prev, aiResponse])
+      } else {
+        throw new Error(response.error || 'Failed to get response')
+      }
+    } catch (error) {
+      console.error('Chat error:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(errorMessage)
+      
+      // Add error message to chat
+      const errorResponse: ChatMessage = {
         id: crypto.randomUUID(),
-        content: getAIResponse(inputText),
+        content: `Sorry, I encountered an error: ${errorMessage}. Please try again.`,
         role: 'assistant',
         timestamp: new Date()
       }
-      setMessages(prev => [...prev, aiResponse])
+      setMessages(prev => [...prev, errorResponse])
+    } finally {
       setIsLoading(false)
-    }, 1500)
+    }
   }
 
-  const getAIResponse = (userInput: string): string => {
-    const input = userInput.toLowerCase()
-    
-    if (input.includes('opportunity') || input.includes('deal')) {
-      return 'I can see you have 3 active opportunities totaling $800K. The "Digital Transformation Project" with Financial Services Ltd looks most promising at 75% probability. Would you like me to analyze the competitive landscape or suggest next steps for any specific deal?'
-    }
-    
-    if (input.includes('techcorp') || input.includes('enterprise software')) {
-      return 'The TechCorp Enterprise Software Implementation is at 60% probability with $250K value. Based on similar deals, I recommend scheduling an executive briefing to address their scalability concerns. Historical data shows deals like this close 23% faster with C-level engagement.'
-    }
-    
-    if (input.includes('financial services') || input.includes('digital transformation')) {
-      return 'Great news! The Financial Services Ltd deal is progressing well at 75% probability. They\'re in final negotiations. I suggest preparing a competitive differentiator document highlighting our 15% cost advantage over CompetitorX, as mentioned in our win/loss analysis.'
-    }
-    
-    if (input.includes('strategy') || input.includes('help') || input.includes('advice')) {
-      return 'I can help with deal strategy, competitive analysis, risk assessment, and next best actions. I analyze your Salesforce data including opportunities, accounts, tasks, and historical patterns. What specific challenge are you facing with your deals?'
-    }
-    
-    return 'I understand you\'re asking about your sales pipeline. I have access to your Salesforce data and can provide insights on opportunities, account relationships, competitive positioning, and deal progression strategies. Could you be more specific about what you\'d like to analyze?'
-  }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -82,6 +94,17 @@ export default function Chat() {
 
   return (
     <div className="flex flex-col h-[600px] bg-white rounded-lg shadow">
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 text-sm">
+          <strong>Error:</strong> {error}
+          <button 
+            onClick={() => setError(null)}
+            className="ml-2 text-red-500 hover:text-red-700"
+          >
+            ×
+          </button>
+        </div>
+      )}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div

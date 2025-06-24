@@ -1,7 +1,7 @@
 import type { AppConfig } from '@/types'
 
 export const config: AppConfig = {
-  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000',
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'https://dwc1jc6bxd.execute-api.ap-south-1.amazonaws.com/prod',
   apiTimeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000,
   salesforceClientId: import.meta.env.VITE_SALESFORCE_CLIENT_ID || '',
   salesforceRedirectUri: import.meta.env.VITE_SALESFORCE_REDIRECT_URI || '',
