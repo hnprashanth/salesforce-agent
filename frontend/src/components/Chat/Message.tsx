@@ -3,7 +3,7 @@ import ActionButton from './ActionButton'
 
 interface MessageProps {
   message: ChatMessage
-  onActionClick: (action: string, payload?: any) => void
+  onActionClick: (action: string, payload?: Record<string, unknown>) => void
 }
 
 export default function Message({ message, onActionClick }: MessageProps) {
