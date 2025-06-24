@@ -6,7 +6,7 @@ import TypingIndicator from './TypingIndicator'
 interface MessageListProps {
   messages: ChatMessage[]
   isLoading: boolean
-  onActionClick: (action: string, payload?: any) => void
+  onActionClick: (action: string, payload?: Record<string, unknown>) => void
   messagesEndRef: RefObject<HTMLDivElement>
 }
 
