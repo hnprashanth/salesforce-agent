@@ -2,7 +2,14 @@ const AWS = require('aws-sdk');
 const OpenAI = require('openai');
 const axios = require('axios');
 
+// Validate required environment variables
+if (!process.env.OPENAI_API_KEY) {
+  console.error('OPENAI_API_KEY environment variable is not set');
+  throw new Error('Missing required environment variable: OPENAI_API_KEY');
+}
+
 const dynamodb = new AWS.DynamoDB.DocumentClient();
+const kms = new AWS.KMS(); // Create KMS client once for reuse
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -24,13 +31,19 @@ const getSession = async (sessionId) => {
 
 // Helper function to decrypt session data
 const decryptSessionData = async (encryptedData) => {
-  const kms = new AWS.KMS();
   const params = {
     CiphertextBlob: Buffer.from(encryptedData, 'base64'),
   };
   
   const result = await kms.decrypt(params).promise();
   return JSON.parse(result.Plaintext.toString());
+};
+
+// Helper function to escape SOQL strings
+const escapeSoqlString = (str) => {
+  if (!str) return '';
+  // Escape single quotes by doubling them
+  return str.replace(/'/g, "''");
 };
 
 // Helper function to get Salesforce data
@@ -64,9 +77,10 @@ const getSalesforceData = async (accessToken, instanceUrl, opportunityId) => {
       account = accountResponse.data;
     }
     
-    // Get recent activities
+    // Get recent activities with escaped opportunityId to prevent SOQL injection
+    const escapedOpportunityId = escapeSoqlString(opportunityId);
     const activitiesResponse = await axios.get(
-      `${instanceUrl}/services/data/v58.0/query?q=SELECT Id,Subject,ActivityDate,Description FROM Task WHERE WhatId='${opportunityId}' ORDER BY ActivityDate DESC LIMIT 10`,
+      `${instanceUrl}/services/data/v58.0/query?q=SELECT Id,Subject,ActivityDate,Description FROM Task WHERE WhatId='${escapedOpportunityId}' ORDER BY ActivityDate DESC LIMIT 10`,
       {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
@@ -267,9 +281,18 @@ exports.handler = async (event) => {
     
   } catch (error) {
     console.error('Error in AI chat function:', error);
-    return createResponse(500, {
+    
+    // Don't expose internal error details to clients
+    const errorResponse = {
       error: 'Internal server error',
-      message: error.message,
-    });
+      message: 'An error occurred processing your request. Please try again.',
+    };
+    
+    // Add request ID for debugging if available
+    if (event.requestContext && event.requestContext.requestId) {
+      errorResponse.requestId = event.requestContext.requestId;
+    }
+    
+    return createResponse(500, errorResponse);
   }
 };
