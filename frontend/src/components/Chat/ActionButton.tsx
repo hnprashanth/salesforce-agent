@@ -64,6 +64,11 @@ export default function ActionButton({ action, onClick, disabled = false }: Acti
     secondary: "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100 focus:ring-gray-500"
   }
 
+  // Safe way to access confidence from payload
+  const confidence = action.payload && typeof action.payload === 'object' && 'confidence' in action.payload 
+    ? action.payload.confidence as number 
+    : null
+
   return (
     <button
       onClick={onClick}
@@ -75,9 +80,9 @@ export default function ActionButton({ action, onClick, disabled = false }: Acti
         {icon}
       </span>
       {action.label}
-      {action.payload?.confidence && (
+      {confidence && typeof confidence === 'number' && (
         <span className="ml-1.5 text-xs opacity-75">
-          ({Math.round(action.payload.confidence * 100)}%)
+          ({Math.round(confidence * 100)}%)
         </span>
       )}
     </button>
