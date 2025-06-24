@@ -86,7 +86,7 @@ export default function ChatContainer({ className = '' }: ChatContainerProps) {
     }
   }
 
-  const handleActionClick = (action: string, payload?: any) => {
+  const handleActionClick = (action: string, payload?: Record<string, unknown>) => {
     // Handle action button clicks
     console.log('Action clicked:', action, payload)
     // TODO: Implement specific action handlers
