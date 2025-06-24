@@ -1,5 +1,5 @@
 // API types
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean
   data: T
   error?: string
@@ -37,7 +37,7 @@ export interface ChatAction {
   id: string
   label: string
   action: string
-  payload?: any
+  payload?: Record<string, unknown>
 }
 
 // Application types
