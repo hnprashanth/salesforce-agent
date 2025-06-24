@@ -85,6 +85,22 @@ export class BackendStack extends cdk.Stack {
       handler: 'index.handler',
       environment: {
         NODE_ENV: 'production',
+        SESSION_TABLE_NAME: sessionTable.tableName,
+      },
+      layers: [sharedLayer],
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 256,
+      logRetention: logs.RetentionDays.ONE_WEEK,
+    });
+
+    // Create Lambda function for Account management
+    const accountFunction = new lambda.Function(this, 'AccountFunction', {
+      runtime: lambda.Runtime.NODEJS_18_X,
+      code: lambda.Code.fromAsset(path.join(__dirname, '../src/functions/account')),
+      handler: 'index.handler',
+      environment: {
+        NODE_ENV: 'production',
+        SESSION_TABLE_NAME: sessionTable.tableName,
       },
       layers: [sharedLayer],
       timeout: cdk.Duration.seconds(30),
@@ -118,7 +134,11 @@ export class BackendStack extends cdk.Stack {
     // Grant permissions to Lambda functions
     sessionTable.grantReadWriteData(salesforceAuthFunction);
     sessionTable.grantReadData(chatFunction);
+    sessionTable.grantReadData(opportunityFunction);
+    sessionTable.grantReadData(accountFunction);
     tokenEncryptionKey.grantEncryptDecrypt(salesforceAuthFunction);
+    tokenEncryptionKey.grantDecrypt(opportunityFunction);
+    tokenEncryptionKey.grantDecrypt(accountFunction);
 
     // Create API endpoints
     const authResource = api.root.addResource('auth');
@@ -140,10 +160,24 @@ export class BackendStack extends cdk.Stack {
     const chatResource = api.root.addResource('chat');
     chatResource.addMethod('POST', new apigateway.LambdaIntegration(chatFunction));
 
-    const opportunityResource = api.root.addResource('opportunities');
-    opportunityResource.addMethod('GET', new apigateway.LambdaIntegration(opportunityFunction));
-    opportunityResource.addMethod('POST', new apigateway.LambdaIntegration(opportunityFunction));
-    opportunityResource.addMethod('PUT', new apigateway.LambdaIntegration(opportunityFunction));
+    // API endpoints as per issue requirements
+    const apiResource = api.root.addResource('api');
+    
+    // Opportunity endpoints: GET /api/opportunity/{id}, PUT /api/opportunity/{id}
+    const opportunityResource = apiResource.addResource('opportunity');
+    const opportunityIdResource = opportunityResource.addResource('{id}');
+    opportunityIdResource.addMethod('GET', new apigateway.LambdaIntegration(opportunityFunction));
+    opportunityIdResource.addMethod('PUT', new apigateway.LambdaIntegration(opportunityFunction));
+    
+    // Opportunities endpoints: GET /api/opportunities/similar, GET /api/opportunities/won
+    const opportunitiesResource = apiResource.addResource('opportunities');
+    opportunitiesResource.addMethod('GET', new apigateway.LambdaIntegration(opportunityFunction));
+    
+    // Account endpoints: GET /api/account/{id}/history
+    const accountResource = apiResource.addResource('account');
+    const accountIdResource = accountResource.addResource('{id}');
+    const accountHistoryResource = accountIdResource.addResource('history');
+    accountHistoryResource.addMethod('GET', new apigateway.LambdaIntegration(accountFunction));
 
     // Output the API URL
     new cdk.CfnOutput(this, 'ApiUrl', {
