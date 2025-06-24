@@ -8,7 +8,16 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "deploy:dev": "npm run build && cdk deploy --context environment=dev",
+    "deploy:staging": "npm run build && cdk deploy --context environment=staging",
+    "deploy:prod": "npm run build && cdk deploy --context environment=prod",
+    "diff:dev": "npm run build && cdk diff --context environment=dev",
+    "diff:staging": "npm run build && cdk diff --context environment=staging",
+    "diff:prod": "npm run build && cdk diff --context environment=prod",
+    "synth": "npm run build && cdk synth",
+    "destroy:dev": "cdk destroy --context environment=dev",
+    "bootstrap": "cdk bootstrap"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
