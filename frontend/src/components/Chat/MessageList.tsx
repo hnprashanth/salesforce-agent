@@ -7,7 +7,7 @@ interface MessageListProps {
   messages: ChatMessage[]
   isLoading: boolean
   onActionClick: (action: string, payload?: Record<string, unknown>) => void
-  messagesEndRef: RefObject<HTMLDivElement>
+  messagesEndRef: RefObject<HTMLDivElement | null>
 }
 
 export default function MessageList({ 
