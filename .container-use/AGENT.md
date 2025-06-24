@@ -1,1 +1,1 @@
-No instructions found. Please look around the filesystem and update me
+Development environment for React/TypeScript Salesforce application. Node.js 20 with npm for package management. Use 'npm run' commands in the frontend directory for development tasks.
