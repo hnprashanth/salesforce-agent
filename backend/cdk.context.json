@@ -1,0 +1,20 @@
+{
+  "dev": {
+    "environment": "dev",
+    "retainResources": false,
+    "enablePointInTimeRecovery": false,
+    "logRetention": 7
+  },
+  "staging": {
+    "environment": "staging",
+    "retainResources": false,
+    "enablePointInTimeRecovery": true,
+    "logRetention": 14
+  },
+  "prod": {
+    "environment": "prod",
+    "retainResources": true,
+    "enablePointInTimeRecovery": true,
+    "logRetention": 30
+  }
+}
