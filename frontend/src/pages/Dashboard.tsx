@@ -152,12 +152,12 @@ export default function Dashboard() {
           <div className="bg-white px-4 py-2 rounded-lg shadow">
             <div className="text-sm text-gray-500">Total Pipeline</div>
             <div className="text-2xl font-bold text-gray-900">
-              {formatCurrency(opportunities.reduce((sum, opp) => sum + opp.amount, 0))}
+              {formatCurrency(Array.isArray(opportunities) ? opportunities.reduce((sum, opp) => sum + opp.amount, 0) : 0)}
             </div>
           </div>
           <div className="bg-white px-4 py-2 rounded-lg shadow">
             <div className="text-sm text-gray-500">Opportunities</div>
-            <div className="text-2xl font-bold text-gray-900">{opportunities.length}</div>
+            <div className="text-2xl font-bold text-gray-900">{Array.isArray(opportunities) ? opportunities.length : 0}</div>
           </div>
         </div>
       </div>
@@ -191,40 +191,48 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {opportunities.map((opportunity) => (
-                <tr key={opportunity.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{opportunity.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{opportunity.accountName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {formatCurrency(opportunity.amount)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStageColor(opportunity.stageName)}`}>
-                      {opportunity.stageName}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {new Date(opportunity.closeDate).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="text-sm font-medium text-gray-900">{opportunity.probability}%</div>
-                      <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${opportunity.probability}%` }}
-                        ></div>
+              {Array.isArray(opportunities) && opportunities.length > 0 ? (
+                opportunities.map((opportunity) => (
+                  <tr key={opportunity.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{opportunity.name}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">{opportunity.accountName}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatCurrency(opportunity.amount)}
                       </div>
-                    </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStageColor(opportunity.stageName)}`}>
+                        {opportunity.stageName}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {new Date(opportunity.closeDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="text-sm font-medium text-gray-900">{opportunity.probability}%</div>
+                        <div className="ml-2 w-16 bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full"
+                            style={{ width: `${opportunity.probability}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">
+                    {loading ? 'Loading opportunities...' : 'No opportunities found'}
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         </div>
